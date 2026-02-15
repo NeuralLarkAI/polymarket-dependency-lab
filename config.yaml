@@ -1,0 +1,151 @@
+mode: "paper"
+
+# Polymarket token IDs to monitor
+# These are example token IDs - replace with actual markets you want to trade
+markets:
+  # Market A - Primary market (dependency trigger)
+  token_a: "21742633143463906290569050155826241533067272736897614950488156847949938836455"
+  # Market B - Secondary market (to trade based on A's movement)
+  token_b: "71321045679252212594626385532706912750332728571942532289631379312455583992563"
+
+execution:
+  live_enabled: false
+  max_exposure_pct: 0.02
+
+dependency:
+  window_sec: 60
+  trigger_move_pct: 0.03
+  min_gap_pct: 0.02
+  fair_value_model: "linear"
+  linear:
+    beta: 1.0
+    intercept: 0.0
+
+news:
+  enabled: true
+  keywords: ["breaking", "resigns", "endorses", "injury", "primary", "poll"]
+  sentiment_weight:
+    multiplier: 0.6
+
+paper:
+  starting_cash_usd: 1000.0
+  fee_bps: 0.0
+  slippage_bps: 5
+  mark_method: "mid"
+
+  runs:
+    enabled: true
+    base_dir: "./runs"
+    tag: "paper"
+
+  use_ws_l2_book: true
+  ws_l2:
+    max_levels: 200
+    min_book_levels: 20
+
+  latency:
+    enabled: true
+    base_ms: 150
+    jitter_ms: 40
+    extra_tail_ms: 250
+    tail_prob: 0.08
+    drop_prob: 0.01
+
+  micro:
+    enabled: true
+    region: "us-central"
+    latency_profiles:
+      us-east:     { base_ms: 110, jitter_ms: 35, tail_prob: 0.06, extra_tail_ms: 200, drop_prob: 0.006 }
+      us-central:  { base_ms: 150, jitter_ms: 45, tail_prob: 0.08, extra_tail_ms: 250, drop_prob: 0.010 }
+      us-west:     { base_ms: 190, jitter_ms: 55, tail_prob: 0.10, extra_tail_ms: 320, drop_prob: 0.014 }
+      eu:          { base_ms: 230, jitter_ms: 70, tail_prob: 0.12, extra_tail_ms: 380, drop_prob: 0.020 }
+    advsel:
+      k_bps_per_vol: 18.0
+      max_extra_bps: 80.0
+      liquidity_shrink_per_vol: 0.35
+      max_liquidity_shrink: 0.75
+
+  performance:
+    log_interval_sec: 5
+    print_interval_sec: 15
+    equity_csv_path: "./data/equity_timeseries.csv"
+    summary_json_path: "./data/performance_summary.json"
+    returns_window_points: 720
+    regime:
+      enabled: true
+      vol_window_points: 60
+      high_vol_threshold: 0.0015
+      min_points_each: 80
+
+  market_vol:
+    enabled: true
+    log_interval_sec: 1
+    csv_name: "market_mid_timeseries.csv"
+
+tournament:
+  enabled: false
+  max_parallel: 3
+  variants:
+    - name: "dep3_base"
+      dependency_shift_pct: 0.03
+      sentiment_weight: 0.6
+      max_exposure_pct: 0.02
+
+evolution:
+  enabled: false
+  generations: 4
+  population: 8
+  elite: 2
+  eval_minutes: 2
+  max_parallel: 2
+  seed: 1337
+
+  constraints:
+    min_fills: 4
+    max_drawdown_pct: 0.30
+    regime_required: true
+    min_points_each_regime: 30
+
+  objective:
+    w_sharpe: 1.0
+    w_equity: 0.25
+    w_drawdown: 1.5
+    w_fills: 0.15
+
+  space:
+    dependency_shift_pct: [0.02, 0.06]
+    min_gap_pct:         [0.01, 0.04]
+    beta:                [0.6, 1.2]
+    intercept:           [-0.05, 0.05]
+    sentiment_weight:    [0.2, 1.0]
+    slippage_bps:        [2, 20]
+    adv_k_bps_per_vol:   [10, 35]
+
+  annealing:
+    enabled: true
+    mutation_rate_start: 0.45
+    mutation_rate_end: 0.15
+    mutation_strength_start: 0.25
+    mutation_strength_end: 0.08
+
+  walkforward:
+    enabled: true
+    folds: 4
+    min_fold_minutes: 1
+    train_min_frac: 0.30
+    stride_frac: 0.15
+    overfit_penalty: 0.75
+    instability_penalty: 0.40
+    market_vol_balanced_folds: true
+    min_high_frac: 0.20
+    max_overlap_frac: 0.35
+    candidate_stride_points: 10
+    candidates_per_fold: 200
+    market_vol_window_points: 60
+    market_high_vol_threshold: 0.0015
+
+bayes:
+  enabled: false
+  trials: 30
+  top_k_seed: 5
+  narrow_frac: 0.20

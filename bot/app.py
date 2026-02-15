@@ -11,6 +11,7 @@ from bot.paper.microstructure import MicrostructureTracker
 from bot.paper.advsel import AdvSelConfig, compute_advsel_penalty
 from bot.paper.latency_profiles import RegionLatency, LatencyProfile
 from bot.paper.market_vol_logger import MarketVolLogger
+from bot.live_feed import PolymarketLiveFeed
 
 class KillSwitch:
     def __init__(self): self.tripped = False; self.reason = ""
@@ -21,9 +22,17 @@ class App:
         self.cfg = cfg
         self.ks = KillSwitch()
         self.tob: Dict[str, TopOfBook] = {}
-        # MVP uses mock "market tokens"
-        self.token_a = "MARKET_A"
-        self.token_b = "MARKET_B"
+
+        # Get token IDs from config (use live Polymarket markets)
+        markets = cfg.get("markets", {})
+        self.token_a = str(markets.get("token_a", "MARKET_A"))
+        self.token_b = str(markets.get("token_b", "MARKET_B"))
+
+        # Initialize live feed
+        self.live_feed = PolymarketLiveFeed(
+            token_ids=[self.token_a, self.token_b],
+            on_tob_update=self._on_tob_update
+        )
 
         pruns = cfg.get("paper", {}).get("runs", {})
         self.run_paths = None
@@ -89,8 +98,13 @@ class App:
             base_dir = self.run_paths.run_dir if self.run_paths else "./data"
             self.market_vol_logger = MarketVolLogger(path=os.path.join(base_dir, csv_name), log_interval_sec=interval)
 
+    def _on_tob_update(self, token_id: str, tob: TopOfBook):
+        """Callback for when live feed updates top-of-book."""
+        self.tob[token_id] = tob
+
     async def shutdown(self):
         self.ks.trip("shutdown")
+        await self.live_feed.stop()
 
     def _perf_tick(self):
         ts = time.time()
@@ -99,9 +113,12 @@ class App:
         self.perf.update(ts=ts, equity=eq, cash=self.paper.cash, realized_pnl=self.paper.realized_pnl, unrealized_pnl=unrl, fills=len(self.paper.fills))
 
     async def run(self):
-        print("[APP] starting (mock feed). TODO: integrate real Polymarket WS + py-clob-client.")
-        a_mid = 0.50
-        b_mid = 0.50
+        print("[APP] Starting with LIVE Polymarket data feed")
+        print(f"[APP] Market A: {self.token_a}")
+        print(f"[APP] Market B: {self.token_b}")
+
+        # Start live feed
+        await self.live_feed.start()
 
         dep_cfg = self.cfg.get("dependency", {})
         trigger_move = float(dep_cfg.get("trigger_move_pct", 0.03))
@@ -110,47 +127,62 @@ class App:
         beta = float(lin.get("beta", 1.0))
         intercept = float(lin.get("intercept", 0.0))
 
-        def seed_book(token, mid):
-            bids = [[round(mid - i*0.001, 4), 500] for i in range(1, 60)]
-            asks = [[round(mid + i*0.001, 4), 500] for i in range(1, 60)]
-            self.ws_book.on_message({"token_id": token, "payload": {"bids": bids, "asks": asks}})
-
-        seed_book(self.token_b, b_mid)
-        last_a = a_mid
+        last_a = None
 
         while not self.ks.tripped:
-            await asyncio.sleep(0.2)
+            await asyncio.sleep(0.5)
             now = time.time()
 
-            # mock movement
-            a_mid = max(0.01, min(0.99, a_mid + (0.004 if int(now*2) % 17 == 0 else -0.001)))
-            b_mid = max(0.01, min(0.99, b_mid + (0.002 if int(now*2) % 19 == 0 else -0.0008)))
+            # Update TOB from live feed (callback updates self.tob)
+            tob_a = self.tob.get(self.token_a)
+            tob_b = self.tob.get(self.token_b)
 
-            self.tob[self.token_a] = TopOfBook(self.token_a, now, a_mid-0.001, a_mid+0.001)
-            self.tob[self.token_b] = TopOfBook(self.token_b, now, b_mid-0.001, b_mid+0.001)
-            self.micro.on_tob(self.tob[self.token_b])
+            # Wait for both markets to have data
+            if not tob_a or not tob_b:
+                continue
 
-            if self.market_vol_logger:
-                self.market_vol_logger.maybe_log(self.token_b, self.tob[self.token_b].midpoint)
+            # Update microstructure tracker with Market B data
+            self.micro.on_tob(tob_b)
 
-            if int(now) % 5 == 0:
-                seed_book(self.token_b, b_mid)
+            # Update book from live feed
+            book_data = self.live_feed.get_book_for_ws_store(self.token_b)
+            if book_data:
+                self.ws_book.on_message(book_data)
+
+            # Log market volatility
+            if self.market_vol_logger and tob_b.midpoint:
+                self.market_vol_logger.maybe_log(self.token_b, tob_b.midpoint)
 
             self._perf_tick()
 
+            # Check dependency trigger
+            a_mid = tob_a.midpoint
+            if a_mid is None:
+                continue
+
+            # Track movement in Market A
+            if last_a is None:
+                last_a = a_mid
+                continue
+
             move = abs(a_mid - last_a) / max(last_a, 1e-9)
             last_a = a_mid
+
             if move < trigger_move:
                 continue
 
+            # Calculate fair value for Market B based on Market A
             fair_b = max(0.01, min(0.99, intercept + beta * a_mid))
-            tob_b = self.tob[self.token_b].midpoint or b_mid
-            gap = (fair_b - tob_b) / max(tob_b, 1e-9)
+            b_mid = tob_b.midpoint
+            if b_mid is None:
+                continue
+
+            gap = (fair_b - b_mid) / max(b_mid, 1e-9)
             if abs(gap) < min_gap:
                 continue
 
             side = "BUY" if gap > 0 else "SELL"
-            limit_price = tob_b * (1.0 + (0.001 if side == "BUY" else -0.001))
+            limit_price = b_mid * (1.0 + (0.001 if side == "BUY" else -0.001))
             size_usd = min(self.paper.cash * 0.02, 25.0)
 
             intent = OrderIntent(self.token_b, side, float(limit_price), float(size_usd))
@@ -183,4 +215,5 @@ class App:
             if fill:
                 self._perf_tick()
 
+        await self.live_feed.stop()
         print(f"[APP] stopped: {self.ks.reason}")

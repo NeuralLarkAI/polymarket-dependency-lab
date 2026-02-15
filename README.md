@@ -1,7 +1,7 @@
 # Polymarket Dependency Lab + Control Tower (MVP Bundle)
 
 A research-grade prediction-market trading lab with:
-- Multi-market monitoring (mock feed in this bundle; real WS integration is TODO)
+- Multi-market monitoring with **LIVE Polymarket data** via py-clob-client
 - Dependency trigger → fair value → mispricing gap → FOK depth-aware execution
 - Paper trading realism: latency + adverse selection + L2 depth
 - Runs folder artifacts: equity, fills, attempts, summary, meta
@@ -9,12 +9,21 @@ A research-grade prediction-market trading lab with:
 - Control Tower UI (FastAPI + Next.js) to start/stop bot + view runs
 
 ## Quick start
+
+### Important: Configure Live Markets First!
+Before running the bot, you need to update `config.yaml` with real Polymarket market token IDs.
+See `docs/FINDING_MARKETS.md` for instructions on finding active markets.
+
 ### 1) Backend + bot
 ```bash
 python -m venv .venv
 source .venv/bin/activate     # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 cp config.example.yaml config.yaml
+
+# IMPORTANT: Edit config.yaml and update the market token IDs!
+# See docs/FINDING_MARKETS.md for help
+
 python run.py
 ```
 

@@ -9,9 +9,19 @@ PID_FILE = os.environ.get("BOT_PID_FILE", "./control_tower_bot.pid")
 def start_bot():
     if os.path.exists(PID_FILE):
         return {"ok": False, "error": "bot already running"}
+
+    # Get the project root directory (two levels up from control_tower/backend)
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
+
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"
-    p = subprocess.Popen(["python", "run.py"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env)
+    p = subprocess.Popen(
+        ["python3", "run.py"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        env=env,
+        cwd=project_root
+    )
     with open(PID_FILE, "w", encoding="utf-8") as f:
         f.write(str(p.pid))
     return {"ok": True, "pid": p.pid}
