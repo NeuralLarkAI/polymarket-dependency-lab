@@ -5,7 +5,10 @@ data/
 runs/
 node_modules/
 .next/
+out/
 control_tower_bot.pid
+.env.local
+.env*.local
 
 .vs/
 
