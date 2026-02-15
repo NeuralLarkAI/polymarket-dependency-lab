@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+data/
+runs/
+node_modules/
+.next/
+control_tower_bot.pid
+
+.vs/
+
