@@ -1,8 +1,8 @@
 from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from control_tower.backend.api.runs import router as runs_router
-from control_tower.backend.api.control import router as control_router
+from api.runs import router as runs_router
+from api.control import router as control_router
 
 app = FastAPI(title="Control Tower Backend")
 app.add_middleware(
