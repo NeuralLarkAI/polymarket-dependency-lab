@@ -1,9 +1,13 @@
+const isGitHubPages = process.env.GITHUB_PAGES === 'true';
+
 const nextConfig = {
   reactStrictMode: true,
-  output: 'export',  // Enable static export for GitHub Pages
-  basePath: '/polymarket-dependency-lab',  // Match your repo name
+  ...(isGitHubPages ? {
+    output: 'export',
+    basePath: '/polymarket-dependency-lab',
+  } : {}),
   images: {
-    unoptimized: true,  // Required for static export
+    unoptimized: true,
   },
 };
 module.exports = nextConfig;

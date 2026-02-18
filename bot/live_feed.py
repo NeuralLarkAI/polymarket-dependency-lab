@@ -65,10 +65,12 @@ class PolymarketLiveFeed:
                 ask = None
 
                 if hasattr(book_response, 'bids') and book_response.bids and len(book_response.bids) > 0:
-                    bid = float(book_response.bids[0]['price'])
+                    b = book_response.bids[0]
+                    bid = float(b.price if hasattr(b, 'price') else b['price'])
 
                 if hasattr(book_response, 'asks') and book_response.asks and len(book_response.asks) > 0:
-                    ask = float(book_response.asks[0]['price'])
+                    a = book_response.asks[0]
+                    ask = float(a.price if hasattr(a, 'price') else a['price'])
 
                 # Create TopOfBook
                 tob = TopOfBook(
@@ -110,10 +112,12 @@ class PolymarketLiveFeed:
         asks = []
 
         if hasattr(book, 'bids') and book.bids:
-            bids = [[float(level['price']), float(level['size'])] for level in book.bids]
+            bids = [[float(level.price if hasattr(level, 'price') else level['price']),
+                      float(level.size if hasattr(level, 'size') else level['size'])] for level in book.bids]
 
         if hasattr(book, 'asks') and book.asks:
-            asks = [[float(level['price']), float(level['size'])] for level in book.asks]
+            asks = [[float(level.price if hasattr(level, 'price') else level['price']),
+                      float(level.size if hasattr(level, 'size') else level['size'])] for level in book.asks]
 
         return {
             "token_id": token_id,

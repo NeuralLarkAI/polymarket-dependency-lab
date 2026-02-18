@@ -1,12 +1,9 @@
 mode: "paper"
 
-# Polymarket token IDs to monitor
-# These are example token IDs - replace with actual markets you want to trade
+# Dependent market pair - Supreme Court tariff ruling (related markets)
 markets:
-  # Market A - Primary market (dependency trigger)
-  token_a: "21742633143463906290569050155826241533067272736897614950488156847949938836455"
-  # Market B - Secondary market (to trade based on A's movement)
-  token_b: "71321045679252212594626385532706912750332728571942532289631379312455583992563"
+  token_a: "105826416199005342591038391498217708749113687972802625260881736773834354050519"
+  token_b: "51171279104285400909666677762285621845926753560865042481170667672124752488918"
 
 execution:
   live_enabled: false
