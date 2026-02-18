@@ -42,7 +42,8 @@ jobs:
         working-directory: ./control_tower/frontend
         run: pnpm build
         env:
-          NEXT_PUBLIC_API_URL: ${{ secrets.PRODUCTION_API_URL || 'http://localhost:8000' }}
+          GITHUB_PAGES: 'true'
+          NEXT_PUBLIC_API_URL: ${{ secrets.PRODUCTION_API_URL }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
