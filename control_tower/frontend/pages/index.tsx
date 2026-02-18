@@ -50,11 +50,11 @@ const C = {
 // ── Utilities ──────────────────────────────────────────────────────────
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-const fmtUsd = (n: number) =>
-  n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 });
-const fmtPct = (n: number) => `${(n * 100).toFixed(2)}%`;
-const fmtTime = (ts: number) => new Date(ts * 1000).toLocaleTimeString();
-const fmtDate = (ts: number) => new Date(ts * 1000).toLocaleString();
+const fmtUsd = (n: number | undefined | null) =>
+  (n ?? 0).toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 });
+const fmtPct = (n: number | undefined | null) => `${((n ?? 0) * 100).toFixed(2)}%`;
+const fmtTime = (ts: number | undefined | null) => ts ? new Date(ts * 1000).toLocaleTimeString() : "--";
+const fmtDate = (ts: number | undefined | null) => ts ? new Date(ts * 1000).toLocaleString() : "--";
 const truncToken = (id: string) =>
   id && id.length > 16 ? `${id.slice(0, 8)}...${id.slice(-4)}` : id || "N/A";
 const pnlColor = (n: number) => (n > 0.001 ? C.green : n < -0.001 ? C.red : C.textDim);
@@ -165,7 +165,7 @@ function MetricsBar({ summary }: { summary: PerformanceSummary | null }) {
       </div>
     );
   }
-  const totalPnl = summary.realized_pnl + summary.unrealized_pnl;
+  const totalPnl = (summary.realized_pnl ?? 0) + (summary.unrealized_pnl ?? 0);
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12, padding: "0 24px", marginTop: 16 }}>
       <MetricCard label="EQUITY" value={fmtUsd(summary.equity)} />
@@ -174,9 +174,9 @@ function MetricsBar({ summary }: { summary: PerformanceSummary | null }) {
       <MetricCard label="FILLS" value={String(summary.fills)} sub={`${summary.points_low + summary.points_high} data pts`} />
       <MetricCard label="MAX DRAWDOWN" value={fmtPct(summary.max_drawdown_pct)}
         color={summary.max_drawdown_pct > 0.1 ? C.red : summary.max_drawdown_pct > 0.05 ? C.yellow : C.text} />
-      <MetricCard label="SHARPE" value={summary.sharpe_like.toFixed(3)}
-        color={summary.sharpe_like > 0 ? C.green : summary.sharpe_like < 0 ? C.red : C.text}
-        sub={summary.regime_ok ? `Lo: ${summary.sharpe_low.toFixed(2)} | Hi: ${summary.sharpe_high.toFixed(2)}` : "regime building..."} />
+      <MetricCard label="SHARPE" value={(summary.sharpe_like ?? 0).toFixed(3)}
+        color={(summary.sharpe_like ?? 0) > 0 ? C.green : (summary.sharpe_like ?? 0) < 0 ? C.red : C.text}
+        sub={summary.regime_ok ? `Lo: ${(summary.sharpe_low ?? 0).toFixed(2)} | Hi: ${(summary.sharpe_high ?? 0).toFixed(2)}` : "regime building..."} />
     </div>
   );
 }
